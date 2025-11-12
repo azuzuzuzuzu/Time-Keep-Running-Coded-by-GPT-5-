@@ -90,7 +90,7 @@
         value="${FPS_LIMIT}" style="width:50px;text-align:center;border:none;border-radius:6px;padding:2px;background:#222;color:#fff;">
       </div>
 
-      <button id="kt-toggle" style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#0078ff;color:#fff;padding:8px;font-size:15px;cursor:pointer;">Bật lại</button>
+      <button id="kt-toggle" style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#0078ff;color:#fff;padding:8px;font-size:15px;cursor:pointer;">Turn On</button>
       <button id="kt-skip" style="margin-top:6px;width:100%;border:none;border-radius:8px;background:#ff7a00;color:#fff;padding:8px;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;">
         ⚡ Skip Time
         <span style="font-size:12px;color:#fff8;font-weight:600;">(Không Hoạt Động / Cannot be used)</span>
