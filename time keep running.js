@@ -146,21 +146,21 @@
       startTime = Date.now();
       isActive = true;
       startWorkerScroll();
-      status.innerHTML = '🟢 ON'; status.style.color = '#0f0'; btn.innerText = 'Tắt tạm thời';
+      status.innerHTML = '🟢 ON'; status.style.color = '#0f0'; btn.innerText = 'Turn Off';
     }
 
     // deactivate
     function deactivate() {
       isActive = false;
       stopWorkerScroll();
-      status.innerHTML = '🔴 OFF'; status.style.color = '#f33'; btn.innerText = 'Bật lại';
+      status.innerHTML = '🔴 OFF'; status.style.color = '#f33'; btn.innerText = 'Turn On';
     }
 
     btn.onclick = () => { isActive ? deactivate() : activate(); };
-    skipBtn.onclick = () => alert('⚠️ Chức năng này hiện KHÔNG HOẠT ĐỘNG.');
+    skipBtn.onclick = () => alert('⚠️ Chức năng này hiện KHÔNG HOẠT ĐỘNG / This function is currently NOT WORKING');
     saveBtn.onclick = () => {
       localStorage.setItem('kt-auto-sites', txt.value.trim());
-      alert('✅ Đã lưu danh sách website tự bật!');
+      alert('✅ Đã lưu danh sách website tự bật! / Saved!');
     };
 
     // realtime
