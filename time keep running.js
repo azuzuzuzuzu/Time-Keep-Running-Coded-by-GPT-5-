@@ -1,5 +1,7 @@
 (function () {
   'use strict';
+  if (window.top !== window.self) return; // ⛔ Không chạy trong iframe (fix 1)
+  if (document.getElementById('kt-ui-box')) return; // ⛔ Không tạo UI trùng (fix 2)
 
   let isActive = false;
   let skipOffset = 0;
@@ -126,7 +128,10 @@
   }
 
   function createUI(){
+    if (document.getElementById('kt-ui-box')) return; // ⛔ fix 3 - nếu có rồi thì không tạo thêm
+
     const box = document.createElement('div');
+    box.id = 'kt-ui-box';
     box.style.position='fixed';
     box.style.bottom=localStorage.getItem('kt-ui-y')||'30px';
     box.style.right =localStorage.getItem('kt-ui-x')||'30px';
@@ -224,7 +229,15 @@
     if(list.some(site => host.includes(site))) activate();
   }
 
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', createUI);
-  else createUI();
+  // Safe init UI
+  function safeCreateUI() {
+    if (document.getElementById('kt-ui-box')) return;
+    createUI();
+  }
+
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', safeCreateUI);
+  else
+    safeCreateUI();
 
 })();
