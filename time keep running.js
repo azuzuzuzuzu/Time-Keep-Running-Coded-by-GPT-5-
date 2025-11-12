@@ -62,15 +62,16 @@
   function createUI() {
     const box = document.createElement('div');
     box.id = 'kt-ui-box';
-    box.style.cssText = `
-      position:fixed;bottom:${localStorage.getItem('kt-ui-y') || '30px'};
-      right:${localStorage.getItem('kt-ui-x') || '30px'};
-      z-index:999999;padding:18px;border-radius:14px;
-      font-family:Consolas,system-ui,sans-serif;font-size:16px;
-      background:linear-gradient(145deg,#111,#2b2b2b);color:#fff;
-      min-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);
-      cursor:move;user-select:none;
-    `;
+box.style.cssText = `
+  position:fixed;bottom:${localStorage.getItem('kt-ui-y') || '25px'};
+  right:${localStorage.getItem('kt-ui-x') || '25px'};
+  z-index:999999;padding:12px 14px;border-radius:12px;
+  font-family:Consolas,system-ui,sans-serif;font-size:14px;
+  background:linear-gradient(145deg,#111,#2b2b2b);color:#fff;
+  min-width:270px;max-width:290px;
+  box-shadow:0 3px 12px rgba(0,0,0,.5);backdrop-filter:blur(6px);
+  cursor:move;user-select:none;
+`;
 
     box.innerHTML = `
       <div style="text-align:center;font-weight:800;margin-bottom:8px;font-size:18px;">⏱ Time Keep Running</div>
