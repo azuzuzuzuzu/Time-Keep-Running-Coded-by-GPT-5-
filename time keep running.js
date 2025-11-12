@@ -1,17 +1,21 @@
 (function () {
   'use strict';
-  if (window.top !== window.self) return; // ⛔ Không chạy trong iframe (fix 1)
-  if (document.getElementById('kt-ui-box')) return; // ⛔ Không tạo UI trùng (fix 2)
+  if (window.top !== window.self) return; // Không chạy trong iframe
+  if (document.getElementById('kt-ui-box')) return; // Không tạo UI trùng
 
   let isActive = false;
   let skipOffset = 0;
   let startTime = null;
   let fps = 0, frameCount = 0, lastFpsUpdate = performance.now();
   let rafHooked = false;
+  let scrollTimer = null; // giữ setInterval auto scroll
+  let scrollStopper = null; // giữ setTimeout dừng sau 80s
 
+  // ===== Helpers =====
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   function formatDuration(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),r=s%60;return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;}
 
+  // ===== Visibility spoof =====
   function enableVisibilityOverride(){
     try{
       const fakeState='visible';
@@ -27,12 +31,14 @@
     };
   }
 
+  // ===== rAF hook =====
   function hookRaf(){
     if(rafHooked) return; rafHooked=true;
     const nativeRaf=window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame=(cb)=>nativeRaf((t)=>{cb(t);frameCount++;const now=performance.now();if(now-lastFpsUpdate>=1000){fps=frameCount;frameCount=0;lastFpsUpdate=now;}});
   }
 
+  // ===== Time hooks =====
   function hookTime(){
     const RealDate=Date; const perfNow=performance.now.bind(performance);
     function FakeDate(...args){
@@ -49,6 +55,7 @@
     performance.now=function(){return perfNow()+skipOffset;};
   }
 
+  // ===== Timer hooks =====
   const nativeST = window.setTimeout.bind(window);
   const nativeSI = window.setInterval.bind(window);
   const nativeCT = window.clearTimeout.bind(window);
@@ -105,30 +112,39 @@
     }
   }, 50);
 
-  function fastForward(ms){
-    skipOffset += ms;
-    hookTime();
+  // ===== Auto Scroll =====
+  function startAutoScroll() {
+    console.log('[AutoScroll] Bắt đầu cuộn tự động 80 giây...');
+    let direction = -1; // -1 = kéo lên, 1 = kéo xuống
+    let distance = 0;
+    const speed = 0.8; // tốc độ (px)
+    const interval = 30; // chu kỳ (ms)
 
-    const target = performance.now();
-    for(const [id, t] of Array.from(timeouts)){
-      if(target >= t.due){
-        timeouts.delete(id);
-        try{ t.cb(...t.args); }catch(e){ console.warn('[KeepTimers] timeout FF error', e); }
+    scrollTimer = setInterval(() => {
+      window.scrollBy(0, direction * speed);
+      distance += speed;
+      if (Math.abs(distance) > 800) {
+        direction *= -1;
+        distance = 0;
       }
-    }
-    for(const [id, it] of intervals){
-      if(it.delay <= 0) continue;
-      const missed = Math.floor((target - it.last) / it.delay);
-      const calls = clamp(missed, 0, 5000);
-      for(let i=0;i<calls;i++){
-        try{ it.cb(...it.args); }catch(e){ console.warn('[KeepTimers] interval FF error', e); break; }
-        it.last += it.delay;
-      }
-    }
+    }, interval);
+
+    // tự dừng sau 80s
+    scrollStopper = setTimeout(() => {
+      clearInterval(scrollTimer);
+      console.log('[AutoScroll] Đã dừng sau 80 giây.');
+    }, 80000);
   }
 
+  function stopAutoScroll() {
+    if (scrollTimer) clearInterval(scrollTimer);
+    if (scrollStopper) clearTimeout(scrollStopper);
+    console.log('[AutoScroll] Đã dừng.');
+  }
+
+  // ===== UI =====
   function createUI(){
-    if (document.getElementById('kt-ui-box')) return; // ⛔ fix 3 - nếu có rồi thì không tạo thêm
+    if (document.getElementById('kt-ui-box')) return;
 
     const box = document.createElement('div');
     box.id = 'kt-ui-box';
@@ -200,10 +216,12 @@
       blockVisibilityChange();
       hookRaf();
       hookTime();
+      startAutoScroll(); // 🚀 Bắt đầu cuộn khi bật
       status.innerHTML='🟢 ON'; status.style.color='#0f0'; btn.innerText='Tắt tạm thời';
     }
     function deactivate(){
       isActive=false;
+      stopAutoScroll(); // ⛔ Dừng khi tắt
       status.innerHTML='🔴 OFF'; status.style.color='#f33'; btn.innerText='Bật lại';
     }
 
@@ -229,15 +247,9 @@
     if(list.some(site => host.includes(site))) activate();
   }
 
-  // Safe init UI
-  function safeCreateUI() {
-    if (document.getElementById('kt-ui-box')) return;
-    createUI();
-  }
-
   if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', safeCreateUI);
+    document.addEventListener('DOMContentLoaded', createUI);
   else
-    safeCreateUI();
+    createUI();
 
 })();
