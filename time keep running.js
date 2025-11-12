@@ -13,7 +13,7 @@
   let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.51;
   let collapsed = localStorage.getItem('kt-ui-collapsed') === 'true';
 
-  // ===== Auto Scroll (chạy cả khi tab ẩn) =====
+  // ===== Auto Scroll (vẫn chạy khi tab ẩn) =====
   function startAutoScroll() {
     if (scrollActive) return;
     scrollActive = true;
@@ -83,8 +83,19 @@
       font-family:Consolas,system-ui,sans-serif;font-size:16px;
       background:linear-gradient(145deg,#111,#2b2b2b);color:#fff;
       min-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);
-      cursor:move;user-select:none;transition:all .2s ease;
+      cursor:move;user-select:none;overflow:hidden;transition:all .3s ease;
     `;
+
+    // CSS cho animation thu/phóng
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-15px); opacity: 0; } }
+      @keyframes slideDown { from { transform: translateY(-15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      .slide-up { animation: slideUp .25s ease forwards; }
+      .slide-down { animation: slideDown .25s ease forwards; }
+    `;
+    document.head.appendChild(style);
+
     box.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div style="font-weight:800;font-size:18px;">⏱ Time Keep Running</div>
@@ -113,7 +124,7 @@
         <textarea id="kt-autosites" rows="3" style="width:100%;margin-top:4px;resize:none;border-radius:6px;padding:6px;font-size:13px;background:#222;color:#fff;border:1px solid #555;box-sizing:border-box"></textarea>
         <button id="kt-save" style="margin-top:6px;width:100%;border:none;border-radius:6px;background:#444;color:#fff;padding:7px 0;cursor:pointer;font-size:13px">💾 Lưu danh sách</button>
 
-        <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 6.1 (Full UI + Cuộn khi ẩn tab + FPS mặc định 5 + Thu nhỏ)</div>
+        <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 6.2 (Full UI + Cuộn khi ẩn tab + FPS mặc định 5 + Thu nhỏ trượt mượt)</div>
       </div>
     `;
     document.body.appendChild(box);
@@ -139,16 +150,25 @@
       localStorage.setItem('kt-ui-y', `${newBottom}px`);
     });
 
-    // ===== Các phần tử =====
+    // ===== Collapse (Thu nhỏ/mở rộng) =====
     const collapseBtn = box.querySelector('#kt-collapse');
     const content = box.querySelector('#kt-content');
     collapseBtn.onclick = () => {
+      if (!collapsed) {
+        content.classList.remove('slide-down');
+        content.classList.add('slide-up');
+        setTimeout(() => { content.style.display = 'none'; }, 200);
+      } else {
+        content.style.display = '';
+        content.classList.remove('slide-up');
+        content.classList.add('slide-down');
+      }
       collapsed = !collapsed;
-      content.style.display = collapsed ? 'none' : '';
       collapseBtn.textContent = collapsed ? '🔼' : '🔽';
       localStorage.setItem('kt-ui-collapsed', collapsed);
     };
 
+    // ===== Các phần tử chính =====
     const status = box.querySelector('#kt-status');
     const fpsEl = box.querySelector('#kt-fps');
     const timeEl = box.querySelector('#kt-time');
