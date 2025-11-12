@@ -1,19 +1,16 @@
 (function () {
   'use strict';
-  if (window.top !== window.self) return; // Không chạy trong iframe
-  if (document.getElementById('kt-ui-box')) return; // Không tạo UI trùng
+  if (window.top !== window.self) return;
+  if (document.getElementById('kt-ui-box')) return;
 
   let isActive = false;
   let skipOffset = 0;
   let startTime = null;
   let fps = 0, frameCount = 0, lastFpsUpdate = performance.now();
   let rafHooked = false;
+  let scrollActive = false, scrollStartTime = null, scrollReq = null;
 
   // ===== Auto Scroll =====
-  let scrollActive = false;
-  let scrollStartTime = null;
-  let scrollReq = null;
-
   function startAutoScroll() {
     if (scrollActive) return;
     scrollActive = true;
@@ -21,10 +18,8 @@
     console.log('[AutoScroll] ▶ Bắt đầu cuộn tự động trong 80 giây...');
 
     const el = document.scrollingElement || document.body;
-    let direction = -1;
-    let distance = 0;
-    const maxScroll = 800;
-    const speed = 0.8;
+    let direction = -1, distance = 0;
+    const maxScroll = 800, speed = 0.8;
 
     function step() {
       if (!scrollActive) return;
@@ -37,15 +32,11 @@
       }
       el.scrollBy(0, direction * speed);
       distance += speed;
-      if (Math.abs(distance) > maxScroll) {
-        direction *= -1;
-        distance = 0;
-      }
+      if (Math.abs(distance) > maxScroll) { direction *= -1; distance = 0; }
       scrollReq = requestAnimationFrame(step);
     }
     scrollReq = requestAnimationFrame(step);
   }
-
   function stopAutoScroll() {
     scrollActive = false;
     if (scrollReq) cancelAnimationFrame(scrollReq);
@@ -54,10 +45,10 @@
 
   // ===== Helpers =====
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  function formatDuration(ms) {
+  const formatDuration = (ms) => {
     const s = Math.floor(ms / 1000), m = Math.floor(s / 60), r = s % 60;
     return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-  }
+  };
 
   // ===== Visibility spoof =====
   function enableVisibilityOverride() {
@@ -115,9 +106,7 @@
   const nativeSI = window.setInterval.bind(window);
   const nativeCT = window.clearTimeout.bind(window);
   const nativeCI = window.clearInterval.bind(window);
-
-  const timeouts = new Map();
-  const intervals = new Map();
+  const timeouts = new Map(), intervals = new Map();
 
   window.setTimeout = function (cb, delay, ...args) {
     const now = performance.now();
@@ -126,10 +115,8 @@
     return id;
   };
   window.clearTimeout = function (id) {
-    timeouts.delete(id);
-    try { nativeCT(id); } catch {}
+    timeouts.delete(id); try { nativeCT(id); } catch {}
   };
-
   window.setInterval = function (cb, delay = 0, ...args) {
     const now = performance.now();
     const id = nativeSI(() => {}, delay);
@@ -137,8 +124,7 @@
     return id;
   };
   window.clearInterval = function (id) {
-    intervals.delete(id);
-    try { nativeCI(id); } catch {}
+    intervals.delete(id); try { nativeCI(id); } catch {}
   };
 
   nativeSI(function timerDriver() {
@@ -173,20 +159,15 @@
 
     const box = document.createElement('div');
     box.id = 'kt-ui-box';
-    box.style.position = 'fixed';
-    box.style.bottom = localStorage.getItem('kt-ui-y') || '30px';
-    box.style.right = localStorage.getItem('kt-ui-x') || '30px';
-    box.style.zIndex = '999999';
-    box.style.padding = '18px';
-    box.style.borderRadius = '14px';
-    box.style.fontFamily = 'Consolas, system-ui, sans-serif';
-    box.style.fontSize = '16px';
-    box.style.background = 'linear-gradient(145deg,#111,#2b2b2b)';
-    box.style.color = '#fff';
-    box.style.minWidth = '300px';
-    box.style.boxShadow = '0 4px 20px rgba(0,0,0,.6)';
-    box.style.backdropFilter = 'blur(8px)';
-    box.style.cursor = 'move';
+    box.style.cssText = `
+      position:fixed;bottom:${localStorage.getItem('kt-ui-y') || '30px'};
+      right:${localStorage.getItem('kt-ui-x') || '30px'};
+      z-index:999999;padding:18px;border-radius:14px;
+      font-family:Consolas,system-ui,sans-serif;font-size:16px;
+      background:linear-gradient(145deg,#111,#2b2b2b);color:#fff;
+      min-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);
+      cursor:move;user-select:none;
+    `;
     box.innerHTML = `
       <div style="text-align:center;font-weight:800;margin-bottom:8px;font-size:18px;">⏱ Time Keep Running</div>
       <div id="kt-status" style="text-align:center;margin-bottom:6px;font-size:17px;color:#f33;">🔴 OFF</div>
@@ -199,10 +180,11 @@
       <div style="margin-top:10px;font-size:13px;color:#ccc;">Website tự bật (phân tách bằng dấu phẩy):</div>
       <textarea id="kt-autosites" rows="3" style="width:100%;margin-top:4px;resize:none;border-radius:6px;padding:6px;font-size:13px;background:#222;color:#fff;border:1px solid #555;box-sizing:border-box"></textarea>
       <button id="kt-save" style="margin-top:6px;width:100%;border:none;border-radius:6px;background:#444;color:#fff;padding:7px 0;cursor:pointer;font-size:13px">💾 Lưu danh sách</button>
+      <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 5.4 (Auto Scroll Fixed)</div>
     `;
     document.body.appendChild(box);
 
-    // Drag
+    // ===== Drag support =====
     let dragging = false, startX = 0, startY = 0, startRight = 0, startBottom = 0;
     box.addEventListener('mousedown', e => {
       if (['kt-toggle','kt-skip','kt-autosites','kt-save'].includes(e.target.id)) return;
@@ -223,6 +205,7 @@
       localStorage.setItem('kt-ui-y', `${newBottom}px`);
     });
 
+    // ===== Logic =====
     const status = box.querySelector('#kt-status');
     const fpsEl = box.querySelector('#kt-fps');
     const timeEl = box.querySelector('#kt-time');
@@ -242,7 +225,6 @@
       startAutoScroll();
       status.innerHTML = '🟢 ON'; status.style.color = '#0f0'; btn.innerText = 'Tắt tạm thời';
     }
-
     function deactivate() {
       isActive = false;
       stopAutoScroll();
@@ -267,9 +249,7 @@
     if (list.some(site => host.includes(site))) activate();
   }
 
-  if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', createUI);
-  else
-    createUI();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', createUI);
+  else createUI();
 
 })();
