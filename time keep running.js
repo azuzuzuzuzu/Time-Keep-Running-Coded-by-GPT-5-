@@ -10,14 +10,14 @@
   let rafHooked = false;
 
   let scrollActive = false, scrollReq = null, lastScrollFrame = 0;
-  const FPS_LIMIT = 20; // giới hạn 20FPS
-  let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.8; // mặc định
+  let FPS_LIMIT = parseInt(localStorage.getItem('kt-fps-limit')) || 20;
+  let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.51;
 
   // ===== Auto Scroll =====
   function startAutoScroll() {
     if (scrollActive) return;
     scrollActive = true;
-    console.log(`[AutoScroll] ▶ Cuộn liên tục (20FPS, speed=${scrollSpeed})`);
+    console.log(`[AutoScroll] ▶ Bắt đầu cuộn (loop, ${FPS_LIMIT}FPS, speed=${scrollSpeed})`);
 
     const el = document.scrollingElement || document.body;
     let direction = -1;
@@ -30,14 +30,26 @@
       if (delta >= 1000 / FPS_LIMIT) {
         el.scrollBy(0, direction * scrollSpeed);
         distance += scrollSpeed;
+
+        // Cuộn vòng lặp
+        if (el.scrollTop <= 0 && direction === -1) {
+          el.scrollTo(0, el.scrollHeight);
+          distance = 0;
+        } else if (el.scrollTop + el.clientHeight >= el.scrollHeight && direction === 1) {
+          el.scrollTo(0, 0);
+          distance = 0;
+        }
+
         if (Math.abs(distance) > maxScroll) {
           direction *= -1;
           distance = 0;
         }
+
         lastScrollFrame = timestamp;
       }
       scrollReq = requestAnimationFrame(step);
     }
+
     scrollReq = requestAnimationFrame(step);
   }
 
@@ -70,7 +82,7 @@
     };
   }
 
-  // ===== rAF hook (vẫn đo FPS) =====
+  // ===== rAF hook (đo FPS thực) =====
   function hookRaf() {
     if (rafHooked) return; rafHooked = true;
     const nativeRaf = window.requestAnimationFrame.bind(window);
@@ -167,17 +179,25 @@
       z-index:999999;padding:18px;border-radius:14px;
       font-family:Consolas,system-ui,sans-serif;font-size:16px;
       background:linear-gradient(145deg,#111,#2b2b2b);color:#fff;
-      min-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);
+      min-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(8px);
       cursor:move;user-select:none;
     `;
     box.innerHTML = `
       <div style="text-align:center;font-weight:800;margin-bottom:8px;font-size:18px;">⏱ Time Keep Running</div>
       <div id="kt-status" style="text-align:center;margin-bottom:6px;font-size:17px;color:#f33;">🔴 OFF</div>
-      <div style="font-size:14px;text-align:center;">FPS: <span id="kt-fps">0</span> | <span id="kt-time">00:00</span></div>
-      <div style="margin-top:8px;font-size:14px;text-align:center;">
+
+      <div style="font-size:14px;text-align:center;margin-bottom:6px;">⏳ Thời gian: <span id="kt-time">00:00</span></div>
+      <div style="font-size:14px;text-align:center;margin-bottom:6px;">🎯 FPS Hiện tại: <span id="kt-fps">0</span></div>
+
+      <div style="margin-top:6px;font-size:14px;text-align:center;">
         🌀 Scroll Speed:
-        <input id="kt-speed" type="number" step="0.1" min="0.1" value="${scrollSpeed}" style="width:60px;text-align:center;border:none;border-radius:6px;padding:2px 4px;background:#222;color:#fff;margin-left:6px;">
+        <input id="kt-speed" type="number" step="0.01" min="0.1" value="${scrollSpeed}" style="width:70px;text-align:center;border:none;border-radius:6px;padding:2px 4px;background:#222;color:#fff;margin-left:6px;">
       </div>
+      <div style="margin-top:6px;font-size:14px;text-align:center;">
+        ⚙️ FPS LIMIT:
+        <input id="kt-fpslimit" type="number" step="1" min="5" value="${FPS_LIMIT}" style="width:60px;text-align:center;border:none;border-radius:6px;padding:2px 4px;background:#222;color:#fff;margin-left:6px;">
+      </div>
+
       <button id="kt-toggle" style="margin-top:10px;width:100%;border:none;border-radius:8px;background:#0078ff;color:#fff;padding:10px 0;font-size:15px;cursor:pointer">Bật lại</button>
       <button id="kt-skip" style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#ff7a00;color:#fff;padding:8px 0;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;">
         ⚡ Skip Time
@@ -186,14 +206,14 @@
       <div style="margin-top:10px;font-size:13px;color:#ccc;">Website tự bật:</div>
       <textarea id="kt-autosites" rows="3" style="width:100%;margin-top:4px;resize:none;border-radius:6px;padding:6px;font-size:13px;background:#222;color:#fff;border:1px solid #555;box-sizing:border-box"></textarea>
       <button id="kt-save" style="margin-top:6px;width:100%;border:none;border-radius:6px;background:#444;color:#fff;padding:7px 0;cursor:pointer;font-size:13px">💾 Lưu danh sách</button>
-      <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 5.6 (Scroll∞ + 20FPS + Speed Control)</div>
+      <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 5.8 (Custom FPS Limit + Loop Scroll + Speed)</div>
     `;
     document.body.appendChild(box);
 
     // Drag UI
     let dragging = false, startX = 0, startY = 0, startRight = 0, startBottom = 0;
     box.addEventListener('mousedown', e => {
-      if (['kt-toggle','kt-skip','kt-autosites','kt-save','kt-speed'].includes(e.target.id)) return;
+      if (['kt-toggle','kt-skip','kt-autosites','kt-save','kt-speed','kt-fpslimit'].includes(e.target.id)) return;
       dragging = true;
       const r = box.getBoundingClientRect();
       startX = e.clientX; startY = e.clientY;
@@ -219,13 +239,22 @@
     const txt = box.querySelector('#kt-autosites');
     const saveBtn = box.querySelector('#kt-save');
     const speedInput = box.querySelector('#kt-speed');
+    const fpsInput = box.querySelector('#kt-fpslimit');
 
-    // Thay đổi tốc độ cuộn realtime
+    // realtime speed
     speedInput.addEventListener('input', () => {
       const val = parseFloat(speedInput.value);
       if (!isNaN(val) && val > 0) {
         scrollSpeed = val;
         localStorage.setItem('kt-scroll-speed', val);
+      }
+    });
+    // realtime fps limit
+    fpsInput.addEventListener('input', () => {
+      const val = parseInt(fpsInput.value);
+      if (!isNaN(val) && val >= 5 && val <= 120) {
+        FPS_LIMIT = val;
+        localStorage.setItem('kt-fps-limit', val);
       }
     });
 
