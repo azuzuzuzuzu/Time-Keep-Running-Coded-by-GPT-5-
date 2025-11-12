@@ -8,39 +8,43 @@
   let startTime = null;
   let fps = 0, frameCount = 0, lastFpsUpdate = performance.now();
   let rafHooked = false;
-  let scrollActive = false, scrollStartTime = null, scrollReq = null;
+
+  let scrollActive = false, scrollReq = null, lastScrollFrame = 0;
+  const FPS_LIMIT = 20; // giới hạn 20FPS
+  let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.8; // mặc định
 
   // ===== Auto Scroll =====
   function startAutoScroll() {
     if (scrollActive) return;
     scrollActive = true;
-    scrollStartTime = performance.now();
-    console.log('[AutoScroll] ▶ Bắt đầu cuộn tự động trong 80 giây...');
+    console.log(`[AutoScroll] ▶ Cuộn liên tục (20FPS, speed=${scrollSpeed})`);
 
     const el = document.scrollingElement || document.body;
-    let direction = -1, distance = 0;
-    const maxScroll = 800, speed = 0.8;
+    let direction = -1;
+    let distance = 0;
+    const maxScroll = 800;
 
-    function step() {
+    function step(timestamp) {
       if (!scrollActive) return;
-      const now = performance.now();
-      const elapsed = now - scrollStartTime;
-      if (elapsed >= 80000) {
-        scrollActive = false;
-        console.log('[AutoScroll] ⏹ Dừng sau 80 giây');
-        return;
+      const delta = timestamp - lastScrollFrame;
+      if (delta >= 1000 / FPS_LIMIT) {
+        el.scrollBy(0, direction * scrollSpeed);
+        distance += scrollSpeed;
+        if (Math.abs(distance) > maxScroll) {
+          direction *= -1;
+          distance = 0;
+        }
+        lastScrollFrame = timestamp;
       }
-      el.scrollBy(0, direction * speed);
-      distance += speed;
-      if (Math.abs(distance) > maxScroll) { direction *= -1; distance = 0; }
       scrollReq = requestAnimationFrame(step);
     }
     scrollReq = requestAnimationFrame(step);
   }
+
   function stopAutoScroll() {
     scrollActive = false;
     if (scrollReq) cancelAnimationFrame(scrollReq);
-    console.log('[AutoScroll] ⛔ Dừng ngay.');
+    console.log('[AutoScroll] ⛔ Dừng cuộn.');
   }
 
   // ===== Helpers =====
@@ -66,7 +70,7 @@
     };
   }
 
-  // ===== rAF hook =====
+  // ===== rAF hook (vẫn đo FPS) =====
   function hookRaf() {
     if (rafHooked) return; rafHooked = true;
     const nativeRaf = window.requestAnimationFrame.bind(window);
@@ -155,8 +159,6 @@
 
   // ===== UI =====
   function createUI() {
-    if (document.getElementById('kt-ui-box')) return;
-
     const box = document.createElement('div');
     box.id = 'kt-ui-box';
     box.style.cssText = `
@@ -172,22 +174,26 @@
       <div style="text-align:center;font-weight:800;margin-bottom:8px;font-size:18px;">⏱ Time Keep Running</div>
       <div id="kt-status" style="text-align:center;margin-bottom:6px;font-size:17px;color:#f33;">🔴 OFF</div>
       <div style="font-size:14px;text-align:center;">FPS: <span id="kt-fps">0</span> | <span id="kt-time">00:00</span></div>
+      <div style="margin-top:8px;font-size:14px;text-align:center;">
+        🌀 Scroll Speed:
+        <input id="kt-speed" type="number" step="0.1" min="0.1" value="${scrollSpeed}" style="width:60px;text-align:center;border:none;border-radius:6px;padding:2px 4px;background:#222;color:#fff;margin-left:6px;">
+      </div>
       <button id="kt-toggle" style="margin-top:10px;width:100%;border:none;border-radius:8px;background:#0078ff;color:#fff;padding:10px 0;font-size:15px;cursor:pointer">Bật lại</button>
       <button id="kt-skip" style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#ff7a00;color:#fff;padding:8px 0;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;">
         ⚡ Skip Time
         <span style="font-size:12px;color:#fff8;font-weight:600;">(Không Hoạt Động / Cannot be used)</span>
       </button>
-      <div style="margin-top:10px;font-size:13px;color:#ccc;">Website tự bật (phân tách bằng dấu phẩy):</div>
+      <div style="margin-top:10px;font-size:13px;color:#ccc;">Website tự bật:</div>
       <textarea id="kt-autosites" rows="3" style="width:100%;margin-top:4px;resize:none;border-radius:6px;padding:6px;font-size:13px;background:#222;color:#fff;border:1px solid #555;box-sizing:border-box"></textarea>
       <button id="kt-save" style="margin-top:6px;width:100%;border:none;border-radius:6px;background:#444;color:#fff;padding:7px 0;cursor:pointer;font-size:13px">💾 Lưu danh sách</button>
-      <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 5.4 (Auto Scroll Fixed)</div>
+      <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 5.6 (Scroll∞ + 20FPS + Speed Control)</div>
     `;
     document.body.appendChild(box);
 
-    // ===== Drag support =====
+    // Drag UI
     let dragging = false, startX = 0, startY = 0, startRight = 0, startBottom = 0;
     box.addEventListener('mousedown', e => {
-      if (['kt-toggle','kt-skip','kt-autosites','kt-save'].includes(e.target.id)) return;
+      if (['kt-toggle','kt-skip','kt-autosites','kt-save','kt-speed'].includes(e.target.id)) return;
       dragging = true;
       const r = box.getBoundingClientRect();
       startX = e.clientX; startY = e.clientY;
@@ -205,7 +211,6 @@
       localStorage.setItem('kt-ui-y', `${newBottom}px`);
     });
 
-    // ===== Logic =====
     const status = box.querySelector('#kt-status');
     const fpsEl = box.querySelector('#kt-fps');
     const timeEl = box.querySelector('#kt-time');
@@ -213,6 +218,17 @@
     const skipBtn = box.querySelector('#kt-skip');
     const txt = box.querySelector('#kt-autosites');
     const saveBtn = box.querySelector('#kt-save');
+    const speedInput = box.querySelector('#kt-speed');
+
+    // Thay đổi tốc độ cuộn realtime
+    speedInput.addEventListener('input', () => {
+      const val = parseFloat(speedInput.value);
+      if (!isNaN(val) && val > 0) {
+        scrollSpeed = val;
+        localStorage.setItem('kt-scroll-speed', val);
+      }
+    });
+
     txt.value = localStorage.getItem('kt-auto-sites') || '';
 
     function activate() {
@@ -251,5 +267,4 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', createUI);
   else createUI();
-
 })();
