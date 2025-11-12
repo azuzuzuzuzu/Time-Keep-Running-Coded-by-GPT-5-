@@ -117,11 +117,6 @@
       el.scrollTo(0, 0);
       distance = 0;
     }
-    // đảo hướng mỗi "maxScroll" px
-    if (Math.abs(distance) > maxScroll) {
-      direction *= -1;
-      distance = 0;
-    }
   }
 
   function setWorkerFPS(n) {
