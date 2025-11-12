@@ -8,51 +8,106 @@
   let startTime = null;
   let fps = 0, frameCount = 0, lastFpsUpdate = performance.now();
   let rafHooked = false;
-  let scrollTimer = null; // giữ setInterval auto scroll
-  let scrollStopper = null; // giữ setTimeout dừng sau 80s
+
+  // ===== Auto Scroll =====
+  let scrollActive = false;
+  let scrollStartTime = null;
+  let scrollReq = null;
+
+  function startAutoScroll() {
+    if (scrollActive) return;
+    scrollActive = true;
+    scrollStartTime = performance.now();
+    console.log('[AutoScroll] ▶ Bắt đầu cuộn tự động trong 80 giây...');
+
+    const el = document.scrollingElement || document.body;
+    let direction = -1;
+    let distance = 0;
+    const maxScroll = 800;
+    const speed = 0.8;
+
+    function step() {
+      if (!scrollActive) return;
+      const now = performance.now();
+      const elapsed = now - scrollStartTime;
+      if (elapsed >= 80000) {
+        scrollActive = false;
+        console.log('[AutoScroll] ⏹ Dừng sau 80 giây');
+        return;
+      }
+      el.scrollBy(0, direction * speed);
+      distance += speed;
+      if (Math.abs(distance) > maxScroll) {
+        direction *= -1;
+        distance = 0;
+      }
+      scrollReq = requestAnimationFrame(step);
+    }
+    scrollReq = requestAnimationFrame(step);
+  }
+
+  function stopAutoScroll() {
+    scrollActive = false;
+    if (scrollReq) cancelAnimationFrame(scrollReq);
+    console.log('[AutoScroll] ⛔ Dừng ngay.');
+  }
 
   // ===== Helpers =====
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  function formatDuration(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),r=s%60;return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;}
+  function formatDuration(ms) {
+    const s = Math.floor(ms / 1000), m = Math.floor(s / 60), r = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  }
 
   // ===== Visibility spoof =====
-  function enableVisibilityOverride(){
-    try{
-      const fakeState='visible';
-      Object.defineProperty(Document.prototype,'visibilityState',{configurable:true,get(){return fakeState;}});
-      Object.defineProperty(Document.prototype,'hidden',{configurable:true,get(){return false;}});
-    }catch(e){}
+  function enableVisibilityOverride() {
+    try {
+      const fakeState = 'visible';
+      Object.defineProperty(Document.prototype, 'visibilityState', { configurable: true, get() { return fakeState; } });
+      Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get() { return false; } });
+    } catch (e) {}
   }
-  function blockVisibilityChange(){
-    const _add=EventTarget.prototype.addEventListener;
-    EventTarget.prototype.addEventListener=function(type,listener,opt){
-      if(isActive && type==='visibilitychange') return;
-      return _add.call(this,type,listener,opt);
+  function blockVisibilityChange() {
+    const _add = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (type, listener, opt) {
+      if (isActive && type === 'visibilitychange') return;
+      return _add.call(this, type, listener, opt);
     };
   }
 
   // ===== rAF hook =====
-  function hookRaf(){
-    if(rafHooked) return; rafHooked=true;
-    const nativeRaf=window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame=(cb)=>nativeRaf((t)=>{cb(t);frameCount++;const now=performance.now();if(now-lastFpsUpdate>=1000){fps=frameCount;frameCount=0;lastFpsUpdate=now;}});
+  function hookRaf() {
+    if (rafHooked) return; rafHooked = true;
+    const nativeRaf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) =>
+      nativeRaf((t) => {
+        cb(t);
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsUpdate >= 1000) {
+          fps = frameCount;
+          frameCount = 0;
+          lastFpsUpdate = now;
+        }
+      });
   }
 
   // ===== Time hooks =====
-  function hookTime(){
-    const RealDate=Date; const perfNow=performance.now.bind(performance);
-    function FakeDate(...args){
-      if(this instanceof FakeDate){
-        if(args.length===0) return new RealDate(RealDate.now()+skipOffset);
+  function hookTime() {
+    const RealDate = Date;
+    const perfNow = performance.now.bind(performance);
+    function FakeDate(...args) {
+      if (this instanceof FakeDate) {
+        if (args.length === 0) return new RealDate(RealDate.now() + skipOffset);
         return new RealDate(...args);
       }
-      return new RealDate(RealDate.now()+skipOffset).toString();
+      return new RealDate(RealDate.now() + skipOffset).toString();
     }
-    Object.getOwnPropertyNames(RealDate).forEach(p=>{try{FakeDate[p]=RealDate[p];}catch{}});
-    FakeDate.now=()=>RealDate.now()+skipOffset;
-    FakeDate.prototype=RealDate.prototype;
-    Object.defineProperty(window,'Date',{configurable:true,value:FakeDate});
-    performance.now=function(){return perfNow()+skipOffset;};
+    Object.getOwnPropertyNames(RealDate).forEach((p) => { try { FakeDate[p] = RealDate[p]; } catch {} });
+    FakeDate.now = () => RealDate.now() + skipOffset;
+    FakeDate.prototype = RealDate.prototype;
+    Object.defineProperty(window, 'Date', { configurable: true, value: FakeDate });
+    performance.now = function () { return perfNow() + skipOffset; };
   }
 
   // ===== Timer hooks =====
@@ -64,112 +119,78 @@
   const timeouts = new Map();
   const intervals = new Map();
 
-  window.setTimeout = function(cb, delay, ...args){
+  window.setTimeout = function (cb, delay, ...args) {
     const now = performance.now();
-    const id = nativeST(()=>{}, delay);
-    timeouts.set(id, { due: now + (delay||0), cb, args });
+    const id = nativeST(() => {}, delay);
+    timeouts.set(id, { due: now + (delay || 0), cb, args });
     return id;
   };
-  window.clearTimeout = function(id){
+  window.clearTimeout = function (id) {
     timeouts.delete(id);
-    try{ nativeCT(id); }catch{}
+    try { nativeCT(id); } catch {}
   };
 
-  window.setInterval = function(cb, delay=0, ...args){
+  window.setInterval = function (cb, delay = 0, ...args) {
     const now = performance.now();
-    const id = nativeSI(()=>{}, delay);
+    const id = nativeSI(() => {}, delay);
     intervals.set(id, { delay: Math.max(0, delay), cb, args, last: now });
     return id;
   };
-  window.clearInterval = function(id){
+  window.clearInterval = function (id) {
     intervals.delete(id);
-    try{ nativeCI(id); }catch{}
+    try { nativeCI(id); } catch {}
   };
 
-  nativeSI(function timerDriver(){
+  nativeSI(function timerDriver() {
     const now = performance.now();
-    for(const [id, t] of Array.from(timeouts)){
-      if(now >= t.due){
+    for (const [id, t] of Array.from(timeouts)) {
+      if (now >= t.due) {
         timeouts.delete(id);
-        try{ t.cb(...t.args); }catch(e){ console.warn('[KeepTimers] timeout error', e); }
+        try { t.cb(...t.args); } catch (e) { console.warn('[KeepTimers] timeout error', e); }
       }
     }
-    for(const [id, it] of intervals){
-      if(it.delay <= 0){
-        try{ it.cb(...it.args); }catch(e){ console.warn('[KeepTimers] interval error', e); }
+    for (const [id, it] of intervals) {
+      if (it.delay <= 0) {
+        try { it.cb(...it.args); } catch (e) { console.warn('[KeepTimers] interval error', e); }
         it.last = now;
         continue;
       }
       const missed = Math.floor((now - it.last) / it.delay);
-      if(missed > 0){
+      if (missed > 0) {
         const calls = clamp(missed, 1, 1000);
-        for(let k=0;k<calls;k++){
-          try{ it.cb(...it.args); }catch(e){ console.warn('[KeepTimers] interval error', e); break; }
+        for (let k = 0; k < calls; k++) {
+          try { it.cb(...it.args); } catch (e) { console.warn('[KeepTimers] interval error', e); break; }
           it.last += it.delay;
         }
-        if(now - it.last > it.delay*4) it.last = now;
+        if (now - it.last > it.delay * 4) it.last = now;
       }
     }
   }, 50);
 
-  // ===== Auto Scroll =====
-  function startAutoScroll() {
-    console.log('[AutoScroll] Bắt đầu cuộn tự động 80 giây...');
-    let direction = -1; // -1 = kéo lên, 1 = kéo xuống
-    let distance = 0;
-    const speed = 0.8; // tốc độ (px)
-    const interval = 30; // chu kỳ (ms)
-
-    scrollTimer = setInterval(() => {
-      window.scrollBy(0, direction * speed);
-      distance += speed;
-      if (Math.abs(distance) > 800) {
-        direction *= -1;
-        distance = 0;
-      }
-    }, interval);
-
-    // tự dừng sau 80s
-    scrollStopper = setTimeout(() => {
-      clearInterval(scrollTimer);
-      console.log('[AutoScroll] Đã dừng sau 80 giây.');
-    }, 80000);
-  }
-
-  function stopAutoScroll() {
-    if (scrollTimer) clearInterval(scrollTimer);
-    if (scrollStopper) clearTimeout(scrollStopper);
-    console.log('[AutoScroll] Đã dừng.');
-  }
-
   // ===== UI =====
-  function createUI(){
+  function createUI() {
     if (document.getElementById('kt-ui-box')) return;
 
     const box = document.createElement('div');
     box.id = 'kt-ui-box';
-    box.style.position='fixed';
-    box.style.bottom=localStorage.getItem('kt-ui-y')||'30px';
-    box.style.right =localStorage.getItem('kt-ui-x')||'30px';
-    box.style.zIndex='999999';
-    box.style.padding='18px';
-    box.style.borderRadius='14px';
-    box.style.fontFamily='Consolas, system-ui, sans-serif';
-    box.style.fontSize='16px';
-    box.style.cursor='move';
-    box.style.userSelect='none';
-    box.style.background='linear-gradient(145deg,#111,#2b2b2b)';
-    box.style.color='#fff';
-    box.style.minWidth='300px';
-    box.style.boxShadow='0 4px 20px rgba(0,0,0,.6)';
-    box.style.backdropFilter='blur(8px)';
-    box.innerHTML=`
+    box.style.position = 'fixed';
+    box.style.bottom = localStorage.getItem('kt-ui-y') || '30px';
+    box.style.right = localStorage.getItem('kt-ui-x') || '30px';
+    box.style.zIndex = '999999';
+    box.style.padding = '18px';
+    box.style.borderRadius = '14px';
+    box.style.fontFamily = 'Consolas, system-ui, sans-serif';
+    box.style.fontSize = '16px';
+    box.style.background = 'linear-gradient(145deg,#111,#2b2b2b)';
+    box.style.color = '#fff';
+    box.style.minWidth = '300px';
+    box.style.boxShadow = '0 4px 20px rgba(0,0,0,.6)';
+    box.style.backdropFilter = 'blur(8px)';
+    box.style.cursor = 'move';
+    box.innerHTML = `
       <div style="text-align:center;font-weight:800;margin-bottom:8px;font-size:18px;">⏱ Time Keep Running</div>
       <div id="kt-status" style="text-align:center;margin-bottom:6px;font-size:17px;color:#f33;">🔴 OFF</div>
-      <div style="font-size:14px;text-align:center;">
-        <span id="kt-fps">FPS: 0</span> |
-        <span id="kt-time">00:00</span>
-      </div>
+      <div style="font-size:14px;text-align:center;">FPS: <span id="kt-fps">0</span> | <span id="kt-time">00:00</span></div>
       <button id="kt-toggle" style="margin-top:10px;width:100%;border:none;border-radius:8px;background:#0078ff;color:#fff;padding:10px 0;font-size:15px;cursor:pointer">Bật lại</button>
       <button id="kt-skip" style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#ff7a00;color:#fff;padding:8px 0;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;">
         ⚡ Skip Time
@@ -182,69 +203,68 @@
     document.body.appendChild(box);
 
     // Drag
-    let dragging=false,startX=0,startY=0,startRight=0,startBottom=0;
-    box.addEventListener('mousedown',e=>{
-      if(['kt-toggle','kt-skip','kt-autosites','kt-save'].includes(e.target.id)) return;
-      dragging=true; const r=box.getBoundingClientRect();
-      startX=e.clientX; startY=e.clientY; startRight=window.innerWidth-r.right; startBottom=window.innerHeight-r.bottom; e.preventDefault();
+    let dragging = false, startX = 0, startY = 0, startRight = 0, startBottom = 0;
+    box.addEventListener('mousedown', e => {
+      if (['kt-toggle','kt-skip','kt-autosites','kt-save'].includes(e.target.id)) return;
+      dragging = true;
+      const r = box.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      startRight = window.innerWidth - r.right; startBottom = window.innerHeight - r.bottom;
+      e.preventDefault();
     });
-    document.addEventListener('mouseup',()=>dragging=false);
-    document.addEventListener('mousemove',e=>{
-      if(!dragging) return;
-      const dx=e.clientX-startX, dy=e.clientY-startY;
-      const newRight=Math.max(0,startRight-dx);
-      const newBottom=Math.max(0,startBottom-dy);
-      box.style.right=`${newRight}px`; box.style.bottom=`${newBottom}px`;
-      localStorage.setItem('kt-ui-x',`${newRight}px`);
-      localStorage.setItem('kt-ui-y',`${newBottom}px`);
+    document.addEventListener('mouseup', () => dragging = false);
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      const newRight = Math.max(0, startRight - dx);
+      const newBottom = Math.max(0, startBottom - dy);
+      box.style.right = `${newRight}px`; box.style.bottom = `${newBottom}px`;
+      localStorage.setItem('kt-ui-x', `${newRight}px`);
+      localStorage.setItem('kt-ui-y', `${newBottom}px`);
     });
 
-    const status=box.querySelector('#kt-status');
-    const fpsEl=box.querySelector('#kt-fps');
-    const timeEl=box.querySelector('#kt-time');
-    const btn=box.querySelector('#kt-toggle');
-    const skipBtn=box.querySelector('#kt-skip');
-    const txt=box.querySelector('#kt-autosites');
-    const saveBtn=box.querySelector('#kt-save');
-
+    const status = box.querySelector('#kt-status');
+    const fpsEl = box.querySelector('#kt-fps');
+    const timeEl = box.querySelector('#kt-time');
+    const btn = box.querySelector('#kt-toggle');
+    const skipBtn = box.querySelector('#kt-skip');
+    const txt = box.querySelector('#kt-autosites');
+    const saveBtn = box.querySelector('#kt-save');
     txt.value = localStorage.getItem('kt-auto-sites') || '';
 
-    function activate(){
-      startTime=Date.now();
-      isActive=true;
+    function activate() {
+      startTime = Date.now();
+      isActive = true;
       enableVisibilityOverride();
       blockVisibilityChange();
       hookRaf();
       hookTime();
-      startAutoScroll(); // 🚀 Bắt đầu cuộn khi bật
-      status.innerHTML='🟢 ON'; status.style.color='#0f0'; btn.innerText='Tắt tạm thời';
+      startAutoScroll();
+      status.innerHTML = '🟢 ON'; status.style.color = '#0f0'; btn.innerText = 'Tắt tạm thời';
     }
-    function deactivate(){
-      isActive=false;
-      stopAutoScroll(); // ⛔ Dừng khi tắt
-      status.innerHTML='🔴 OFF'; status.style.color='#f33'; btn.innerText='Bật lại';
+
+    function deactivate() {
+      isActive = false;
+      stopAutoScroll();
+      status.innerHTML = '🔴 OFF'; status.style.color = '#f33'; btn.innerText = 'Bật lại';
     }
 
     btn.onclick = () => { isActive ? deactivate() : activate(); };
-
-    skipBtn.onclick = () => {
-      alert('⚠️ Chức năng này hiện KHÔNG HOẠT ĐỘNG / Cannot be used.');
-    };
-
+    skipBtn.onclick = () => alert('⚠️ Chức năng này hiện KHÔNG HOẠT ĐỘNG / Cannot be used.');
     saveBtn.onclick = () => {
       const v = txt.value.trim();
       localStorage.setItem('kt-auto-sites', v);
       alert('✅ Đã lưu danh sách website tự bật!');
     };
 
-    setInterval(()=>{
-      fpsEl.textContent = `FPS: ${isActive ? fps : 0}`;
-      if(isActive && startTime) timeEl.textContent = formatDuration(Date.now() - startTime);
+    setInterval(() => {
+      fpsEl.textContent = `${isActive ? fps : 0}`;
+      if (isActive && startTime) timeEl.textContent = formatDuration(Date.now() - startTime);
     }, 1000);
 
-    const host = location.hostname.toLowerCase().replace(/^www\./,'');
-    const list = (txt.value||'').split(',').map(s=>s.trim().toLowerCase()).map(s=>s.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'')).filter(Boolean);
-    if(list.some(site => host.includes(site))) activate();
+    const host = location.hostname.toLowerCase().replace(/^www\./, '');
+    const list = (txt.value || '').split(',').map(s => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')).filter(Boolean);
+    if (list.some(site => host.includes(site))) activate();
   }
 
   if (document.readyState === 'loading')
