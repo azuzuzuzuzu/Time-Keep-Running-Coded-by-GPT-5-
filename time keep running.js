@@ -95,7 +95,7 @@ box.style.cssText = `
         <span style="font-size:12px;color:#fff8;font-weight:600;">(Not Working / Cannot be used)</span>
       </button>
 
-      <div style="margin-top:10px;font-size:13px;color:#ccc;">Auto-enable websites (comma separated):</div>
+      <div style="margin-top:10px;font-size:13px;color:#ccc;">Auto-enable websites / Tự bật ở websites bạn muốn (comma separated / dùng dấu phẩy để cách):</div>
       <textarea id="kt-autosites" rows="3" style="width:100%;margin-top:4px;resize:none;border-radius:6px;padding:6px;font-size:13px;background:#222;color:#fff;border:1px solid #555;box-sizing:border-box"></textarea>
       <button id="kt-save" style="margin-top:6px;width:100%;border:none;border-radius:6px;background:#444;color:#fff;padding:7px 0;cursor:pointer;font-size:13px;">💾 Save List</button>
       <div style="margin-top:10px;text-align:center;font-size:12px;color:#aaa;">Version 6.4.2 (Balanced UI + Worker Scroll + English Buttons)</div>
