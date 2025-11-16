@@ -9,7 +9,7 @@
 
   // ===== Auto Scroll =====
   let scrollActive = false, scrollReq = null;
-  let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.51;
+  let scrollSpeed = parseFloat(localStorage.getItem('kt-scroll-speed')) || 0.501;
 
   function startAutoScroll() {
     if (scrollActive) return;
