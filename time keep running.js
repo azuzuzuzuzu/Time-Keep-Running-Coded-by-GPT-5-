@@ -100,7 +100,7 @@
       </button>
 
       <div style="margin-top:6px;text-align:center;font-size:11px;color:#aaa;">
-        Version 6.4.3 (Hide UI + Multiline AutoSites)
+        Version 2.0 (Bỏ skip time, thêm vài thứ linh tinh)
       </div>
     `;
     document.body.appendChild(box);
